@@ -22,6 +22,6 @@ Additionally, describe how retro 80's style music could be integrated into the g
 
 I had Gemini code this prompt for me, but it wasn't what I was looking for. It ended up being a buggy Space Invaders type of game. I asked it to simplify the prompt and create a multiple choice question and answer game. I included the Slides from the Inbound Marketing course at HubSpot Academy.
 
-It coded the game that you see here. I copied the code and added my own sound effects and music into the code. 
+It coded the game that you see here. I copied the code and added my own sound effects and music with Artlist.IO and put it into the code. 
 
 This was the end result. I hope you enjoy!
