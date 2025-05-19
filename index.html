@@ -269,7 +269,7 @@
             border: 4px solid var(--hubspot-orange);
             border-radius: 10px;
             padding: 25px;
-            z-index: 1000;
+            z-index: 1000; /* Ensure message box is above game container but below source image */
             text-align: center;
             box-shadow: 0 0 20px rgba(0,0,0,0.7);
             width: 80%;
@@ -289,6 +289,41 @@
             font-size: 0.9em;
             cursor: pointer;
             border-radius: 5px;
+        }
+
+        /* CSS for Source Image Container - Full Screen */
+        #source-image-container {
+            display: none; /* Initially hidden, shown by JS */
+            position: fixed; /* Cover the entire viewport */
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--retro-dark-grey); /* Background for full screen */
+            justify-content: center;
+            align-items: center;
+            z-index: 2000; /* Ensure it's on top of everything */
+            padding: 20px; /* Add some padding around the image */
+            box-sizing: border-box;
+        }
+
+        #source-image {
+            max-width: 100%; /* Fit width within the padded container */
+            max-height: 100%; /* Fit height within the padded container */
+            object-fit: contain; /* Maintain aspect ratio */
+            border-radius: 8px;
+            border: 3px solid var(--hubspot-orange);
+        }
+
+
+        /* CSS Snippet for Initially Hiding End Screen Elements */
+        /* These will be shown by JavaScript after the source image */
+        #end-screen .game-over-title,
+        #end-screen .final-score-text,
+        #end-screen #ranking-message,
+        #end-screen #kyle-jepson-scene-placeholder, /* Target the new placeholder */
+        #end-screen #restart-button {
+            display: none; /* Initially hidden */
         }
 
         /* Responsive adjustments */
@@ -335,9 +370,18 @@
             <h2 class="game-over-title">Game Over!</h2>
             <p class="final-score-text">Your Final Score: <span id="final-score">0</span></p>
             <p id="ranking-message">Calculating rank...</p>
+
+            <div id="kyle-jepson-scene-placeholder" style="display: none; margin-top: 20px; margin-bottom: 15px;">
+                </div>
+
             <button id="restart-button" class="btn">Play Again</button>
         </div>
     </div>
+    
+    <div id="source-image-container">
+        <img id="source-image" src="Kyle_Jepson_Image.png" alt="Source Image">
+    </div>
+
 
     <div id="custom-message-box" class="message-box">
         <p id="custom-message-text"></p>
@@ -361,7 +405,7 @@
 
             const startButton = document.getElementById('start-button');
             const nextQuestionButton = document.getElementById('next-question-button');
-            const restartButton = document.getElementById('restart-button');
+            const restartButton = document.getElementById('restart-button'); 
 
             const scoreDisplay = document.getElementById('score');
             const currentQuestionNumberDisplay = document.getElementById('current-question-number');
@@ -369,8 +413,10 @@
             const questionTextDisplay = document.getElementById('question-text');
             const answerOptionsContainer = document.getElementById('answer-options');
             const feedbackTextDisplay = document.getElementById('feedback-text');
-            const finalScoreDisplay = document.getElementById('final-score');
-            const rankingMessageDisplay = document.getElementById('ranking-message');
+            
+            const finalScoreTextElement = document.querySelector('#end-screen .final-score-text'); 
+            const finalScoreDisplay = document.getElementById('final-score'); 
+            const rankingMessageDisplay = document.getElementById('ranking-message'); 
 
             const customMessageBox = document.getElementById('custom-message-box');
             const customMessageText = document.getElementById('custom-message-text');
@@ -383,9 +429,14 @@
             const gameEndSound = document.getElementById('game-end-sound');
             const backgroundMusic = document.getElementById('background-music');
 
+            // New DOM Element References from Snippets
+            const sourceImageContainer = document.getElementById('source-image-container');
+            const sourceImageElement = document.getElementById('source-image'); 
+            const gameOverTitleElement = document.querySelector('#end-screen .game-over-title'); 
+            const kyleJepsonScenePlaceholder = document.getElementById('kyle-jepson-scene-placeholder');
+
+
             // --- GAME QUESTIONS ARRAY ---
-            // This array holds all the quiz questions, their options, and the index of the correct answer.
-            // You can easily add more questions here.
             const questions = [
                 {
                     question: "Which stage of the Inbound Flywheel focuses on attracting visitors with useful content?",
@@ -535,71 +586,56 @@
             const POINTS_PER_CORRECT_ANSWER = 10;
 
             // --- Utility Functions ---
-
-            /**
-             * Plays a sound effect if the audio element is valid and not a placeholder.
-             * @param {HTMLAudioElement} soundElement - The audio element to play.
-             */
             function playSound(soundElement) {
-                // Check if the sound element and its src are valid (not a placeholder and not empty)
-                if (soundElement && soundElement.src && !soundElement.src.includes('placeholder-') && soundElement.src.trim() !== window.location.href) { // Added check for empty src
-                    soundElement.currentTime = 0; // Rewind to start
+                if (soundElement && soundElement.src && !soundElement.src.includes('placeholder-') && soundElement.src.trim() !== window.location.href) { 
+                    soundElement.currentTime = 0; 
                     soundElement.play().catch(error => {
-                        // Log errors, especially for autoplay issues or missing files.
-                        console.warn("Audio play error (this is expected if placeholder sounds are used or if user interaction is required for autoplay):", error);
+                        console.warn("Audio play error:", error);
                     });
                 }
             }
 
-            /**
-             * Displays a message in the custom message box.
-             * @param {string} message - The message to display.
-             */
             function showMessage(message) {
                 customMessageText.textContent = message;
                 customMessageBox.style.display = 'block';
             }
 
-            // Event listener for the OK button in the custom message box
             customMessageOkButton.addEventListener('click', () => {
                 customMessageBox.style.display = 'none';
             });
 
-            /**
-             * Switches the currently active screen in the game.
-             * @param {HTMLElement} activeScreen - The screen element to make active.
-             */
             function switchScreen(activeScreen) {
                 document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
                 activeScreen.classList.add('active');
             }
 
             // --- Game Logic Functions ---
-
-            /**
-             * Initializes and starts the game.
-             */
             function startGame() {
                 playSound(gameStartSound);
-                // Attempt to play background music. Browsers might block autoplay until user interaction.
                 if (backgroundMusic && backgroundMusic.src && backgroundMusic.src.trim() !== window.location.href && !backgroundMusic.src.includes('placeholder-')) {
                     backgroundMusic.loop = true;
-                    backgroundMusic.volume = 0.3; // Set a lower volume for background music
-                    backgroundMusic.play().catch(e => console.warn("Background music autoplay failed (user interaction might be needed):", e));
+                    backgroundMusic.volume = 0.3; 
+                    backgroundMusic.play().catch(e => console.warn("Background music autoplay failed:", e));
                 }
 
-                // Reset game state
+                // Reset visibility of end screen elements
+                if(sourceImageContainer) sourceImageContainer.style.display = 'none'; // Ensure full screen image is hidden
+                if(gameOverTitleElement) gameOverTitleElement.style.display = 'none';
+                if(finalScoreTextElement) finalScoreTextElement.style.display = 'none';
+                if(rankingMessageDisplay) rankingMessageDisplay.style.display = 'none';
+                if(kyleJepsonScenePlaceholder) kyleJepsonScenePlaceholder.style.display = 'none';
+                if(restartButton) restartButton.style.display = 'none'; // Ensure restart button is hidden too
+
                 currentQuestionIndex = 0;
                 score = 0;
                 updateScoreDisplay();
                 totalQuestionsDisplay.textContent = questions.length;
                 feedbackTextDisplay.textContent = '';
-                nextQuestionButton.style.display = 'none'; // Hide next button initially
+                nextQuestionButton.style.display = 'none'; 
                 
-                // Check if there are any questions loaded
                 if (questions.length === 0) {
                     showMessage("No questions loaded! Please add questions to the game script.");
-                    switchScreen(startScreen); // Stay on start screen
+                    switchScreen(startScreen); 
                     return;
                 }
 
@@ -607,53 +643,40 @@
                 loadQuestion();
             }
 
-            /**
-             * Loads the current question and its answer options onto the screen.
-             */
             function loadQuestion() {
                 if (currentQuestionIndex < questions.length) {
                     const currentQuestion = questions[currentQuestionIndex];
                     questionTextDisplay.textContent = currentQuestion.question;
                     currentQuestionNumberDisplay.textContent = currentQuestionIndex + 1;
-                    answerOptionsContainer.innerHTML = ''; // Clear previous answer options
+                    answerOptionsContainer.innerHTML = ''; 
 
-                    // Shuffle options for variety (optional but good for replayability)
-                    const shuffledOptions = [...currentQuestion.options] // Create a copy to shuffle
+                    const shuffledOptions = [...currentQuestion.options] 
                         .map(value => ({ value, sort: Math.random() }))
                         .sort((a, b) => a.sort - b.sort)
                         .map(({ value }) => value);
                     
-                    // Identify the correct answer's text *before* shuffling for comparison
                     const correctAnswerText = currentQuestion.options[currentQuestion.correctAnswerIndex];
                  
-                    // Create and append answer buttons
                     shuffledOptions.forEach((optionText) => { 
                         const button = document.createElement('button');
                         button.classList.add('answer-btn');
                         button.textContent = optionText;
-                        // Store whether this option is the correct one using a data attribute
                         button.dataset.isCorrect = (optionText === correctAnswerText); 
                         button.addEventListener('click', selectAnswer);
                         answerOptionsContainer.appendChild(button);
                     });
 
-                    feedbackTextDisplay.textContent = ''; // Clear previous feedback
-                    feedbackTextDisplay.className = ''; // Reset feedback class
-                    nextQuestionButton.style.display = 'none'; // Hide next button until an answer is selected
-                    enableAnswerButtons(); // Ensure buttons are clickable
+                    feedbackTextDisplay.textContent = ''; 
+                    feedbackTextDisplay.className = ''; 
+                    nextQuestionButton.style.display = 'none'; 
+                    enableAnswerButtons(); 
                 } else {
-                    // No more questions, end the game
                     endGame();
                 }
             }
 
-            /**
-             * Handles the player's selection of an answer.
-             * @param {Event} event - The click event from the answer button.
-             */
             function selectAnswer(event) {
                 playSound(selectSound);
-                // If background music was paused due to autoplay restrictions, try playing now that user has interacted.
                 if (backgroundMusic && backgroundMusic.paused && backgroundMusic.src && backgroundMusic.src.trim() !== window.location.href && !backgroundMusic.src.includes('placeholder-')) {
                      backgroundMusic.play().catch(e => console.warn("BG Music play on interaction failed:", e));
                 }
@@ -662,7 +685,7 @@
                 const isCorrect = selectedButton.dataset.isCorrect === 'true';
                 const currentQuestion = questions[currentQuestionIndex]; 
 
-                disableAnswerButtons(); // Prevent multiple selections
+                disableAnswerButtons(); 
 
                 if (isCorrect) {
                     playSound(correctSound);
@@ -675,7 +698,6 @@
                     playSound(incorrectSound);
                     selectedButton.classList.add('incorrect');
                     
-                    // Highlight the actual correct answer
                     answerOptionsContainer.querySelectorAll('.answer-btn').forEach(btn => {
                         if (btn.dataset.isCorrect === 'true') {
                             btn.classList.add('reveal-correct'); 
@@ -686,12 +708,9 @@
                     feedbackTextDisplay.className = 'feedback-incorrect';
                 }
 
-                nextQuestionButton.style.display = 'inline-block'; // Show next question button
+                nextQuestionButton.style.display = 'inline-block'; 
             }
 
-            /**
-             * Disables all answer buttons to prevent further interaction.
-             */
             function disableAnswerButtons() {
                 answerOptionsContainer.querySelectorAll('.answer-btn').forEach(btn => {
                     btn.disabled = true;
@@ -699,9 +718,6 @@
                 });
             }
 
-            /**
-             * Enables all answer buttons.
-             */
             function enableAnswerButtons() {
                 answerOptionsContainer.querySelectorAll('.answer-btn').forEach(btn => {
                     btn.disabled = false;
@@ -709,28 +725,17 @@
                 });
             }
 
-            /**
-             * Updates the score display on the HUD.
-             */
             function updateScoreDisplay() {
                 scoreDisplay.textContent = score;
             }
 
-            /**
-             * Moves to the next question.
-             */
             function handleNextQuestion() {
                 currentQuestionIndex++;
                 loadQuestion();
             }
 
-            /**
-             * Generates a ranking message based on the final score.
-             * @param {number} finalScore - The player's final score.
-             * @returns {string} - The ranking message.
-             */
             function getRankingMessage(finalScore) {
-                if (questions.length === 0) return "No questions to rank!"; // Should not happen if startGame checks
+                if (questions.length === 0) return "No questions to rank!"; 
                 const percentage = (finalScore / (questions.length * POINTS_PER_CORRECT_ANSWER)) * 100;
                 if (percentage >= 90) return "Inbound Master! You're a HubSpot hero!";
                 if (percentage >= 70) return "Great job! You know your Inbound stuff!";
@@ -739,29 +744,53 @@
                 return "Ouch! Better luck next time. Review the fundamentals!";
             }
 
-            /**
-             * Ends the game and displays the end screen.
-             */
             function endGame() {
                 playSound(gameEndSound);
-                // Pause background music if it's playing
                 if (backgroundMusic && !backgroundMusic.paused && backgroundMusic.src && backgroundMusic.src.trim() !== window.location.href && !backgroundMusic.src.includes('placeholder-')) {
                      backgroundMusic.pause(); 
                 }
 
-                finalScoreDisplay.textContent = score;
-                rankingMessageDisplay.textContent = getRankingMessage(score);
-                switchScreen(endScreen);
+                switchScreen(endScreen); // Switch to the end screen structure
+
+                // Initially, hide main end-game elements (already done by CSS, but good to be explicit)
+                if(gameOverTitleElement) gameOverTitleElement.style.display = 'none';
+                if(finalScoreTextElement) finalScoreTextElement.style.display = 'none';
+                if(rankingMessageDisplay) rankingMessageDisplay.style.display = 'none';
+                if(kyleJepsonScenePlaceholder) kyleJepsonScenePlaceholder.style.display = 'none';
+                if(restartButton) restartButton.style.display = 'none'; 
+
+                // Show the full-screen source image
+                if(sourceImageContainer) sourceImageContainer.style.display = 'flex'; // Use flex to center its child
+
+                // After a delay, hide source image and show the rest of the end screen content
+                setTimeout(() => {
+                    if(sourceImageContainer) sourceImageContainer.style.display = 'none'; // Hide full-screen image
+
+                    // Now show the standard game over elements within the #end-screen
+                    if(gameOverTitleElement) gameOverTitleElement.style.display = 'block';
+                    if(finalScoreTextElement) {
+                        finalScoreTextElement.style.display = 'block';
+                        if (finalScoreDisplay) finalScoreDisplay.textContent = score; 
+                    }
+                    if(rankingMessageDisplay) {
+                        rankingMessageDisplay.style.display = 'block';
+                        rankingMessageDisplay.textContent = getRankingMessage(score); 
+                    }
+                    
+                    if(kyleJepsonScenePlaceholder) kyleJepsonScenePlaceholder.style.display = 'block';
+                    // If you have JavaScript to trigger an animation for Kyle, do it here.
+
+                    if(restartButton) restartButton.style.display = 'inline-block'; 
+                }, 3000); // 3-second delay
             }
 
             // --- Event Listeners Setup ---
             startButton.addEventListener('click', startGame);
             nextQuestionButton.addEventListener('click', handleNextQuestion);
-            restartButton.addEventListener('click', startGame); // Restarting calls startGame again
+            restartButton.addEventListener('click', startGame); 
 
             // Initial Game Setup
-            switchScreen(startScreen); // Show start screen initially
-            // Check if any questions are loaded and inform user if not (after a slight delay for DOM readiness)
+            switchScreen(startScreen); 
             if (questions.length === 0) {
                  setTimeout(() => { 
                     showMessage("Welcome! To play, please add questions to the 'questions' array in the game's script (JavaScript code).");
@@ -771,3 +800,4 @@
     </script>
 </body>
 </html>
+
